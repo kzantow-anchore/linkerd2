@@ -83,6 +83,8 @@ docker_build() {
       fi
     fi
 
+    docker buildx create --driver-opt network=host --use
+
     log_debug "  :; docker buildx $rootdir $cache_params $output_params -t $repo:$tag -f $file $*"
     # shellcheck disable=SC2086
     docker buildx build "$rootdir" $cache_params \

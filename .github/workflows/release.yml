@@ -1,20 +1,29 @@
 name: Release
 on:
   push:
+    branches:
+    - "*"
     tags:
     - "*"
 permissions:
   contents: read
 env:
   GH_ANNOTATION: true
-  DOCKER_REGISTRY: ghcr.io/linkerd
+  DOCKER_REGISTRY: localhost:5000/linkerd
+
 jobs:
 
   docker_build:
     runs-on: ubuntu-20.04
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
     strategy:
       matrix:
-        component: [proxy, controller, metrics-api, web, cni-plugin, debug, cli-bin, grafana, jaeger-webhook, tap]
+        component: [proxy, controller]
+#        component: [proxy, controller, metrics-api, web, cni-plugin, debug, cli-bin, grafana, jaeger-webhook, tap]
     name: Docker build (${{ matrix.component }})
     timeout-minutes: 30
     steps:
@@ -54,11 +63,17 @@ jobs:
         path: /home/runner/archives
 
   policy_controller_build:
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     strategy:
       matrix:
-        arch: [amd64, arm64, arm]
+        arch: [amd64, arm64]
+#        arch: [amd64, arm64, arm]
     name: Policy controller build (${{ matrix.arch }})
     steps:
     - name: Set up Docker Buildx
@@ -70,7 +85,8 @@ jobs:
         echo "TAG=$(CI_FORCE_CLEAN=1 bin/root-tag)" >> $GITHUB_ENV
     - name: Build ${{ matrix.arch }}
       run: |
-        echo "${{ secrets.DOCKER_GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.DOCKER_GHCR_USERNAME }}" --password-stdin
+        docker buildx create --driver-opt network=host --use
+        echo "${{ secrets.DOCKER_GHCR_PAT }}"  docker login ghcr.io -u "${{ secrets.DOCKER_GHCR_USERNAME }}" --password-stdin
         docker buildx build --push . \
           -f ./policy-controller/${{ matrix.arch }}.dockerfile \
           -t $DOCKER_REGISTRY/policy-controller:$TAG-${{ matrix.arch }}
@@ -80,6 +96,7 @@ jobs:
         artifact-name: linkerd-policy-controller-${{ matrix.arch }}.spdx.json
 
   policy_controller_manifest:
+    if: "false"
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     needs: [policy_controller_build]
@@ -110,6 +127,7 @@ jobs:
         docker manifest push $DOCKER_REGISTRY/policy-controller:$TAG
 
   windows_static_cli_tests:
+    if: "false"
     name: Static CLI tests (windows)
     timeout-minutes: 30
     runs-on: windows-latest
@@ -126,6 +144,7 @@ jobs:
       run: go test --failfast --mod=readonly ".\test\cli" --linkerd=$PWD\image-archives\linkerd-windows.exe --cli-tests -v
 
   integration_tests:
+    if: "false"
     strategy:
       matrix:
         integration_test:
@@ -164,6 +183,7 @@ jobs:
         bin/tests --images preload --name ${{ matrix.integration_test }} "$CMD"
 
   arm64_integration_tests:
+    if: "false"
     name: ARM64 integration tests
     timeout-minutes: 60
     runs-on: ubuntu-20.04
@@ -202,6 +222,7 @@ jobs:
       run: bin/test-cleanup "$CMD" || true
 
   choco_pack:
+    if: "false"
     # only runs for stable tags. The conditionals are at each step level instead of the job level
     # otherwise the jobs below that depend on this one won't run
     name: Pack Chocolatey release
@@ -234,7 +255,8 @@ jobs:
     timeout-minutes: 30
     if: startsWith(github.ref, 'refs/tags/stable') || startsWith(github.ref, 'refs/tags/edge')
     runs-on: ubuntu-20.04
-    needs: [choco_pack]
+#    needs: [choco_pack]
+    needs: [policy_controller_build, docker_build]
     permissions:
       contents: write
     steps:
@@ -249,19 +271,19 @@ jobs:
         . bin/_release.sh
         echo "TAG=$(CI_FORCE_CLEAN=1 bin/root-tag)" >> $GITHUB_ENV
         extract_release_notes NOTES.md
-    - name: Download choco package
-      if: startsWith(github.ref, 'refs/tags/stable')
-      uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60
-      with:
-        name: choco
-        path: choco
-    - name: Pull CLI binaries
-      env:
-        DOCKER_TARGET: multi-arch
-      run : |
-        bin/docker-pull-binaries $TAG
-        VERSION=${TAG#"stable-"}
-        mv choco/linkerd.*.nupkg target/release/linkerd2-cli-stable-$VERSION.nupkg || true
+#    - name: Download choco package
+#      if: startsWith(github.ref, 'refs/tags/stable')
+#      uses: actions/download-artifact@3be87be14a055c47b01d3bd88f8fe02320a9bb60
+#      with:
+#        name: choco
+#        path: choco
+#    - name: Pull CLI binaries
+#      env:
+#        DOCKER_TARGET: multi-arch
+#      run : |
+#        bin/docker-pull-binaries $TAG
+#        VERSION=${TAG#"stable-"}
+#        mv choco/linkerd.*.nupkg target/release/linkerd2-cli-stable-$VERSION.nupkg || true
     - name: Create release
       id: create_release
       uses: softprops/action-gh-release@fb0163a75bee697a9cfec2c931801de7c7f10042
@@ -269,11 +291,11 @@ jobs:
         draft: false
         prerelease: false
         body_path: NOTES.md
-        files: |
-          ./target/release/linkerd2-cli-*-darwin*
-          ./target/release/linkerd2-cli-*-linux-*
-          ./target/release/linkerd2-cli-*-windows.*
-          ./target/release/linkerd2-cli-*.nupkg
+#        files: |
+#          ./target/release/linkerd2-cli-*-darwin*
+#          ./target/release/linkerd2-cli-*-linux-*
+#          ./target/release/linkerd2-cli-*-windows.*
+#          ./target/release/linkerd2-cli-*.nupkg
 
     - uses: anchore/sbom-action/publish-sbom@v0
       with:
@@ -282,7 +304,7 @@ jobs:
   website_publish:
     name: Linkerd website publish
     timeout-minutes: 30
-    if: startsWith(github.ref, 'refs/tags/stable') || startsWith(github.ref, 'refs/tags/edge')
+    if: "false" # startsWith(github.ref, 'refs/tags/stable') || startsWith(github.ref, 'refs/tags/edge')
     runs-on: ubuntu-20.04
     needs: [gh_release]
     permissions:
@@ -298,7 +320,7 @@ jobs:
   website_publish_check:
     name: Linkerd website publish check
     timeout-minutes: 30
-    if: startsWith(github.ref, 'refs/tags/stable') || startsWith(github.ref, 'refs/tags/edge')
+    if: "false" # startsWith(github.ref, 'refs/tags/stable') || startsWith(github.ref, 'refs/tags/edge')
     runs-on: ubuntu-20.04
     needs: [website_publish]
     steps:
@@ -327,6 +349,7 @@ jobs:
         fi
 
   chart_deploy:
+    if: "false"
     name: Helm chart deploy
     timeout-minutes: 30
     runs-on: ubuntu-20.04
