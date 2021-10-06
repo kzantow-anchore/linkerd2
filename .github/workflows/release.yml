@@ -28,6 +28,10 @@ jobs:
         docker-ghcr-username: ${{ secrets.DOCKER_GHCR_USERNAME }}
         docker-ghcr-pat: ${{ secrets.DOCKER_GHCR_PAT }}
         component: ${{ matrix.component }}
+    - uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.DOCKER_REGISTRY }}/${{ matrix.component }}:${{ env.TAG }}
+        artifact-name: linkerd-${{ matrix.component }}.spdx.json
     - name: Create artifact with CLI
       # windows_static_cli_tests below needs this because it can't create linux containers
       # inside windows
@@ -70,6 +74,10 @@ jobs:
         docker buildx build --push . \
           -f ./policy-controller/${{ matrix.arch }}.dockerfile \
           -t $DOCKER_REGISTRY/policy-controller:$TAG-${{ matrix.arch }}
+    - uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.DOCKER_REGISTRY }}/policy-controller:${{ env.TAG }}-${{ matrix.arch }}
+        artifact-name: linkerd-policy-controller-${{ matrix.arch }}.spdx.json
 
   policy_controller_manifest:
     runs-on: ubuntu-20.04
@@ -232,6 +240,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+    - uses: anchore/sbom-action@v0
+      with:
+        artifact-name: linkerd-source.spdx.json
     - name: Set environment variables from scripts
       run: |
         . bin/_tag.sh
@@ -263,6 +274,10 @@ jobs:
           ./target/release/linkerd2-cli-*-linux-*
           ./target/release/linkerd2-cli-*-windows.*
           ./target/release/linkerd2-cli-*.nupkg
+
+    - uses: anchore/sbom-action/publish-sbom@v0
+      with:
+        sbom-artifact-match: .*.spdx.json$
 
   website_publish:
     name: Linkerd website publish
