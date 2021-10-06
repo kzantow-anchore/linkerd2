@@ -97,6 +97,7 @@ jobs:
         artifact-name: linkerd-policy-controller-${{ matrix.arch }}
 
   policy_controller_manifest:
+    if: "false"
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     needs: [policy_controller_build]
@@ -126,7 +127,7 @@ jobs:
             $DOCKER_REGISTRY/policy-controller:${TAG}-arm --os=linux --arch=arm
     - name: Push multiarch manifest
       run: |
-        echo "${{ secrets.DOCKER_GHCR_PAT }}" docker login ghcr.io -u "${{ secrets.DOCKER_GHCR_USERNAME }}" --password-stdin
+        echo "${{ secrets.DOCKER_GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.DOCKER_GHCR_USERNAME }}" --password-stdin
         docker manifest push $DOCKER_REGISTRY/policy-controller:$TAG
 
   windows_static_cli_tests:
@@ -259,6 +260,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/stable') || startsWith(github.ref, 'refs/tags/edge')
     runs-on: ubuntu-20.04
 #    needs: [choco_pack]
+    needs: [policy_controller_build, docker_build]
     permissions:
       contents: write
     steps:
