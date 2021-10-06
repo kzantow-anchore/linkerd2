@@ -35,9 +35,10 @@ jobs:
         docker-ghcr-username: ${{ secrets.DOCKER_GHCR_USERNAME }}
         docker-ghcr-pat: ${{ secrets.DOCKER_GHCR_PAT }}
         component: ${{ matrix.component }}
+#    - run: echo "SYFT_REGISTRY_INSECURE_USE_HTTP=true" >> $GITHUB_ENV
     - uses: anchore/sbom-action@v0
       with:
-        image: ${{ env.DOCKER_REGISTRY }}/${{ matrix.component }}
+        image: ${{ env.DOCKER_REGISTRY }}/${{ matrix.component }}:${{ env.TAG }}
     - name: Create artifact with CLI
       # windows_static_cli_tests below needs this because it can't create linux containers
       # inside windows
