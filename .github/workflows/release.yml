@@ -276,9 +276,9 @@ jobs:
 #      with:
 #        name: choco
 #        path: choco
-    - name: Pull CLI binaries
-      env:
-        DOCKER_TARGET: multi-arch
+#    - name: Pull CLI binaries
+#      env:
+#        DOCKER_TARGET: multi-arch
 #      run : |
 #        bin/docker-pull-binaries $TAG
 #        VERSION=${TAG#"stable-"}
