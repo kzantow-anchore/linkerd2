@@ -279,8 +279,8 @@ jobs:
     - name: Pull CLI binaries
       env:
         DOCKER_TARGET: multi-arch
-      run : |
-        bin/docker-pull-binaries $TAG
+#      run : |
+#        bin/docker-pull-binaries $TAG
 #        VERSION=${TAG#"stable-"}
 #        mv choco/linkerd.*.nupkg target/release/linkerd2-cli-stable-$VERSION.nupkg || true
     - name: Create release
@@ -290,11 +290,11 @@ jobs:
         draft: false
         prerelease: false
         body_path: NOTES.md
-        files: |
-          ./target/release/linkerd2-cli-*-darwin*
-          ./target/release/linkerd2-cli-*-linux-*
-          ./target/release/linkerd2-cli-*-windows.*
-          ./target/release/linkerd2-cli-*.nupkg
+#        files: |
+#          ./target/release/linkerd2-cli-*-darwin*
+#          ./target/release/linkerd2-cli-*-linux-*
+#          ./target/release/linkerd2-cli-*-windows.*
+#          ./target/release/linkerd2-cli-*.nupkg
     - uses: anchore/sbom-action/publish-sbom@v0
       with:
         sbom-artifact-match: .*.sbom.json$
